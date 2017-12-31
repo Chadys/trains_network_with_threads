@@ -3,13 +3,16 @@ C11
 
 # How to launch
 Same instruction for all four projects :
+```bash
 $cmake
 $make
 $projet_train{number_of_project}
+```
 
 ## CMakeLists.txt tweekings :
-Remove commentary around "-lpthread" if needed by your OS
-Remove "-DDEBUG" if you don't want to see the trains' movement messages
+Remove commentary around ```"-lpthread"``` if needed by your OS
+
+Remove ```"-DDEBUG"``` if you don't want to see the trains' movement messages
 
 # Network
 - A <-> B
