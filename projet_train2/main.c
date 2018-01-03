@@ -40,7 +40,7 @@ void init_reseau(){
     for (unsigned char i = 0 ; i < N_TRAINS ; i++) {
         trains[i].id = i+(unsigned char)1;
         creer_trajet(i, trajets[i], l_trajets[i]);
-        sem_train_names[0] = i;
+        sem_train_names[0] = i+(unsigned char)1;
         trains[i].sem_arrivee = sem_open(sem_train_names, O_CREAT, S_IRUSR | S_IWUSR, 0);
     }
 }
@@ -62,7 +62,7 @@ void clean_semaphores(){
     }
     for (unsigned char i = 0 ; i < N_TRAINS ; i++) {
         sem_close(trains[i].sem_arrivee);
-        sem_train_names[0] = i;
+        sem_train_names[0] = i+(unsigned char)1;
         sem_unlink(sem_train_names);
     }
 
