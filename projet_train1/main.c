@@ -78,7 +78,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     pthread_mutex_lock(&mutex_fifo); // évite l'interblocage entre deux trains allant dans des direction opposées
     pthread_mutex_lock(&liaisons[station1][station2].mutex); //verrouille l'accès concurrent à train_fifo des autres trains voulant faire le même trajet
     if (push_fifo(station1, station2, id_train)) { //ajoute le train à la file d'attente de cette liaison
-        pthread_mutex_lock(&liaisons[station2][station1].mutex); //Si premier train, on verrouille l'accès à la ligne en sens contraire //interblocage évité ici
+        pthread_mutex_lock(&liaisons[station2][station1].mutex); //Si premier train, on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par mutex_fifo
     }
     PRINT("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des mutex pour éviter des affichages incohérents
     pthread_mutex_unlock(&liaisons[station1][station2].mutex);

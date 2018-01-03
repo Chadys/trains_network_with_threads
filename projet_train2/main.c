@@ -70,7 +70,7 @@ void clean_semaphores(){
     sem_unlink(sem_fifo_name);
 }
 
-void push_fifo(unsigned char station1, unsigned char station2, unsigned char id_train, unsigned char temps_trajet){ //ajoute le train id_train à la file d'attente de la liaison voulue et renvoie vrai s'il est le premier
+void push_fifo(unsigned char station1, unsigned char station2, unsigned char id_train, unsigned char temps_trajet){ //ajoute le train id_train à la file d'attente de la liaison voulue avec le temps de trajet qui lui correspond
     for (unsigned char i = 0 ; i < N_TRAINS ; i++) {
         if (liaisons[station1][station2].train_fifo[i].id_train == 0){
             liaisons[station1][station2].train_fifo[i].id_train = id_train;
@@ -87,20 +87,23 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     }
     sem_wait(sem_fifo); // évite l'interblocage entre deux trains allant dans des direction opposées
     sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à train_fifo et nb_train des autres trains voulant faire le même trajet
-    if (liaisons[station1][station2].nb_trains == 0) { //si premier train //on ne peux pas utiliser train fifo car risque de concurrence puisqu'elle est manipuler par gere_arrivee_gare, un train dans le mauvais sens risquerait de passer si elle est vidée juste après qu'un train passe cette instruction
-        sem_wait(liaisons[station2][station1].sem_engage); // on verrouille l'accès à la ligne en sens contraire //interblocage évité ici
+    if (liaisons[station1][station2].nb_trains == 0) { //si premier train //on ne peux pas utiliser train fifo car risque de concurrence puisqu'elle est manipulée par gere_arrivee_gare, un train dans le mauvais sens risquerait de passer si elle est vidée juste après qu'un train ne passe ce block d'instructions
+        sem_wait(liaisons[station2][station1].sem_engage); // on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par sem_fifo
     }
     liaisons[station1][station2].nb_trains++;
     PRINT("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
     sem_post(liaisons[station1][station2].sem_engage);
     sem_post(sem_fifo);
+
     unsigned char temps_trajet = (unsigned char)rand() % (unsigned char)3 + (unsigned char)1;
+
     sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à train_fifo des autres trains voulant faire le même trajet
     push_fifo(station1, station2, id_train, temps_trajet);
     sem_post(liaisons[station1][station2].sem_arrive); //indique au thread gérant cette liaison qu'un train doit être pris en charge
     sem_post(liaisons[station1][station2].sem_engage);
     sem_wait(trains[id_train-1].sem_arrivee); //attend que le thread qui gère la liaison ait indiqué que ce train est arrivé
-    sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à train_fifo et nb_train des autres trains voulant faire le même trajet    if (liaisons[station1][station2].train_fifo[0].id_train == 0) { //ajoute le train à la file d'attente de cette liaison
+
+    sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à nb_train des autres trains voulant faire le même trajet
     PRINT("Le train %d est arrivé à destination sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
     liaisons[station1][station2].nb_trains--;
     if (liaisons[station1][station2].nb_trains == 0) { // Si dernier train
@@ -118,9 +121,9 @@ void* gere_arrivee_gare(void *arg) {
         char temps_attente = 0;
         unsigned char temps_total = 0;
 
-        sem_wait(liaison->sem_arrive); //attend qu'au moin un train arrive à cette liaison
+        sem_wait(liaison->sem_arrive); //attend qu'au moins un train arrive à cette liaison
         sem_wait(liaison->sem_engage); //évite concurrence sur train_fifo
-        for (i = 0; i < N_TRAINS; i++) { //récupère tous les train actuellement sur la file d'attente et la vide //d'où nécessité du trywait ligne 128, évite l'ajout d'un compteur
+        for (i = 0; i < N_TRAINS; i++) { //récupère tous les trains actuellement sur la file d'attente et la vide
             train_fifo[i] = liaison->train_fifo[i];
             liaison->train_fifo[i].id_train = 0;
         }
