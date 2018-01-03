@@ -13,11 +13,11 @@
 #include <stdbool.h>
 #include <signal.h>
 
-const unsigned char N_STATIONS = 5;
-const unsigned char N_TRAINS = 3;
-const unsigned char N_TRAJETS = 6;
-const unsigned char MAX_L_TRAJET = 6;
-const unsigned char N_LIAISONS = 11;
+#define N_STATIONS 5
+#define N_TRAINS 3
+#define N_TRAJETS 6
+#define MAX_L_TRAJET 6
+#define N_LIAISONS 11
 
 enum {
     A,

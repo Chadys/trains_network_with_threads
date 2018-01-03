@@ -1,18 +1,15 @@
-# Language
-C11
+# Language & OS
+C & Linux (Ubuntu 16.04)
 
 # How to launch
 Same instruction for all four projects :
 ```bash
-$cmake
-$make
-$projet_train{number_of_project}
+$gcc main.c header.h -Wall -Wextra -Werror -O3 -lpthread -DDEBUG -o train.out
+$./train.out
 ```
+Add ```-lrt``` only for project 4
 
-## CMakeLists.txt tweekings :
-Remove commentary around ```"-lpthread"``` if needed by your OS
-
-Remove ```"-DDEBUG"``` if you don't want to see the trains' movement messages
+Remove ```-DDEBUG``` if you don't want to see the trains' movement messages
 
 # Network
 - A <-> B
@@ -23,9 +20,9 @@ Remove ```"-DDEBUG"``` if you don't want to see the trains' movement messages
 - E <-> A
 
 # Routes
-- train 1 : ABCBA
-- train 2 : ABDCBA
-- train 3 : ABDCEA
+- train 1 : A->B->C->B->Back to beginning
+- train 2 : A->B->D->C->B->Back to beginning
+- train 3 : A->B->D->C->E->Back to beginning
 
 # Different solutions
 - projet_train1 : using only mutex

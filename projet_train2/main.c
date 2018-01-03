@@ -87,7 +87,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     }
     sem_wait(sem_fifo); // évite l'interblocage entre deux trains allant dans des direction opposées
     sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à train_fifo et nb_train des autres trains voulant faire le même trajet
-    if (liaisons[station1][station2].nb_trains == 0) { //si premier train //on ne peux pas utiliser train fifo car risque de concurrence puisqu'elle est manipulée par gere_arrivee_gare, un train dans le mauvais sens risquerait de passer si elle est vidée juste après qu'un train ne passe ce block d'instructions
+    if (liaisons[station1][station2].nb_trains == 0 && liaisons[station2][station1].valid) { //si premier train //on ne peux pas utiliser train fifo car risque de concurrence puisqu'elle est manipulée par gere_arrivee_gare, un train dans le mauvais sens risquerait de passer si elle est vidée juste après qu'un train ne passe ce block d'instructions
         sem_wait(liaisons[station2][station1].sem_engage); // on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par sem_fifo
     }
     liaisons[station1][station2].nb_trains++;
@@ -106,7 +106,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à nb_train des autres trains voulant faire le même trajet
     PRINT("Le train %d est arrivé à destination sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
     liaisons[station1][station2].nb_trains--;
-    if (liaisons[station1][station2].nb_trains == 0) { // Si dernier train
+    if (liaisons[station1][station2].nb_trains == 0 && liaisons[station2][station1].valid) { // Si dernier train
         sem_post(liaisons[station2][station1].sem_engage); // on déverrouille l'accès à la ligne en sens contraire
     }
     sem_post(liaisons[station1][station2].sem_engage);

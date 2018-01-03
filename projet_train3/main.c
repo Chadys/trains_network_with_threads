@@ -102,7 +102,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
 
     pthread_rwlock_wrlock(&rwlock_fifo); // évite l'interblocage entre deux trains allant dans des direction opposées
     pthread_rwlock_wrlock(&liaisons[station1][station2].rwlock_train_statut); //verrouille l'accès concurrent à train_fifo des autres trains voulant faire le même trajet
-    if (liaisons[station1][station2].train_fifo[0].id_train == 0) { //Si premier train, on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par rwlock_fifo
+    if (liaisons[station1][station2].train_fifo[0].id_train == 0 && liaisons[station2][station1].valid) { //Si premier train, on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par rwlock_fifo
         pthread_rwlock_wrlock(&liaisons[station2][station1].rwlock_train_deplace); //verrou en écriture, bloquera tous les autres
     }
     pthread_rwlock_rdlock(&liaisons[station1][station2].rwlock_train_deplace); //indique su'un train roule sur ce trajet, verrou en lecture non bloquant pour les autres
@@ -116,7 +116,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     pthread_rwlock_wrlock(&liaisons[station1][station2].rwlock_train_statut); //verrouille l'accès concurrent à train_fifo des autres trains voulant faire le même trajet
     update_status_fifo(station1, station2, id_train); // marque le train id_train comme étant arrivé
     arrive = gere_arrivee_gare(station1, station2, id_train); //fait arriver les trains qui le sont (s'il ne sont pas derrière un train qui ne l'est pas) et indique au train appelant s'il est arrivé
-    if (liaisons[station1][station2].train_fifo[0].id_train == 0) { //Si dernier train
+    if (liaisons[station1][station2].train_fifo[0].id_train == 0 && liaisons[station2][station1].valid) { //Si dernier train
         pthread_rwlock_unlock(&liaisons[station2][station1].rwlock_train_deplace); // on déverrouille l'accès à la ligne en sens contraire
     }
     pthread_rwlock_unlock(&liaisons[station1][station2].rwlock_train_statut);

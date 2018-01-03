@@ -9,7 +9,6 @@
 
 liaison liaisons [N_STATIONS][N_STATIONS]; //tableau représentant toutes les liaisons entre deux stations
 train trains[N_TRAINS];
-pthread_t thread_ids[N_TRAINS]; //global pour pouvoir envoyer des signaux à des threads spécifiques
 pthread_mutex_t mutex_fifo = PTHREAD_MUTEX_INITIALIZER; //mutex général pour tous les trains
 pthread_cond_t cond_fifo = PTHREAD_COND_INITIALIZER; //attente conditionnelle si un train fait la queue derrière un autre sur la même liaison
 
@@ -77,7 +76,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     }
     pthread_mutex_lock(&mutex_fifo); // évite l'interblocage entre deux trains allant dans des direction opposées
     pthread_mutex_lock(&liaisons[station1][station2].mutex); //verrouille l'accès concurrent à train_fifo des autres trains voulant faire le même trajet
-    if (push_fifo(station1, station2, id_train)) { //ajoute le train à la file d'attente de cette liaison
+    if (push_fifo(station1, station2, id_train) && liaisons[station2][station1].valid) { //ajoute le train à la file d'attente de cette liaison
         pthread_mutex_lock(&liaisons[station2][station1].mutex); //Si premier train, on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par mutex_fifo
     }
     PRINT("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des mutex pour éviter des affichages incohérents
@@ -85,13 +84,13 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     pthread_mutex_unlock(&mutex_fifo);
     sleep((unsigned)rand() % 3 + 1);
     pthread_mutex_lock(&liaisons[station1][station2].mutex); //verrouille l'accès concurrent à train_fifo des autres trains voulant faire le même trajet
-    if (liaisons[station1][station2].train_fifo[0] != id_train) { //si le train id_train n'est pas le premier de la file d'attente, on déverrouille le mutex et on attend pour laisser passer celui ou ceux d'avant //pas besoin d'un while car seul le thread concerné sera notifié
+    while (liaisons[station1][station2].train_fifo[0] != id_train) { //si le train id_train n'est pas le premier de la file d'attente, on déverrouille le mutex et on attend pour laisser passer celui ou ceux d'avant
         pthread_cond_wait(&cond_fifo, &liaisons[station1][station2].mutex);
     }
-    if (pop_fifo(station1, station2)) { //retire le train de la file d'attente de cette liaison
+    if (pop_fifo(station1, station2) && liaisons[station2][station1].valid) { //retire le train de la file d'attente de cette liaison
         pthread_mutex_unlock(&liaisons[station2][station1].mutex); //Si tous les trains sont passés, on déverrouille l'accès à la ligne en sens contraire
     } else if (liaisons[station1][station2].train_fifo[0] != 0){
-        pthread_cond_signal_thread_np(&cond_fifo, thread_ids[liaisons[station1][station2].train_fifo[0]-1]); //sinon on signale uniquement au train qui attend juste derrière de continuer, c'est lui qui préviendra l'éventuel train qui vient ensuite
+        pthread_cond_broadcast(&cond_fifo); //sinon on signale aux trains qui attendent derrière de vérifier si c'est à eux de continuer //utilisation précédente de pthread_cond_signal_thread_np, très pratique mais disponible seulement sur mac
     }
     PRINT("Le train %d est arrivé à destination sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des mutex pour éviter des affichages incohérents
     pthread_mutex_unlock(&liaisons[station1][station2].mutex);
@@ -121,6 +120,7 @@ int main() {
     unsigned char i;
     unsigned char index_trains[N_TRAINS];
     struct sigaction act;
+    pthread_t thread_ids[N_TRAINS];
 
     srand(time(NULL)); // initialisation de rand
     memset(&act, '\0', sizeof(act));

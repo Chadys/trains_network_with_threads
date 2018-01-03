@@ -13,14 +13,15 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <fcntl.h>
 
-const unsigned char N_STATIONS = 5;
-const unsigned char N_TRAINS = 3;
-const unsigned char N_TRAJETS = 6;
-const unsigned char MAX_L_TRAJET = 6;
-const unsigned char N_LIAISONS = 11;
-const unsigned char SEM_LIAISON_NAME_SIZE = 15;
-const unsigned char SEM_TRAIN_NAME_SIZE = 12;
+#define N_STATIONS 5
+#define N_TRAINS 3
+#define N_TRAJETS 6
+#define MAX_L_TRAJET 6
+#define N_LIAISONS 11
+#define SEM_LIAISON_NAME_SIZE 15
+#define SEM_TRAIN_NAME_SIZE 12
 
 const char * sem_fifo_name = "Fifo_sem";
 char sem_train_names[SEM_TRAIN_NAME_SIZE] = "\0_train_sem";

@@ -14,13 +14,13 @@
 #include <signal.h>
 #include <mqueue.h>
 
-const unsigned char N_STATIONS = 5;
-const unsigned char N_TRAINS = 3;
-const unsigned char N_TRAJETS = 6;
-const unsigned char MAX_L_TRAJET = 6;
-const unsigned char N_LIAISONS = 11;
-const unsigned char MQUEUE_LIAISON_NAME_SIZE = 18;
-const unsigned char MQUEUE_TRAIN_NAME_SIZE = 15;
+#define N_STATIONS 5
+#define N_TRAINS 3
+#define N_TRAJETS 6
+#define MAX_L_TRAJET 6
+#define N_LIAISONS 11
+#define MQUEUE_LIAISON_NAME_SIZE 18
+#define MQUEUE_TRAIN_NAME_SIZE 15
 
 const char * mqueue_fifo_name = "Fifo_mqueue";
 char mqueue_train_start_names[MQUEUE_TRAIN_NAME_SIZE] = "\0_start_mqueue";
