@@ -5,7 +5,14 @@ bool debug = true;
 #else
 bool debug = false;
 #endif
-#define PRINT(...) if (debug) printf(__VA_ARGS__)
+#define PRINT_DEBUG(...) if (debug) printf(__VA_ARGS__)
+
+#ifdef TEST
+bool test = true;
+#else
+bool test = false;
+#endif
+#define PRINT_TEST(...) if (test) fprintf(stderr, __VA_ARGS__)
 
 liaison liaisons [N_STATIONS][N_STATIONS]; //tableau représentant toutes les liaisons entre deux stations
 train trains[N_TRAINS];
@@ -82,7 +89,7 @@ void push_fifo(unsigned char station1, unsigned char station2, unsigned char id_
 
 void voyage(unsigned char id_train, unsigned char station1, unsigned char station2) {
     if (!liaisons[station1][station2].valid) {
-        PRINT("Le train %d tente d'emprunter la ligne non reliée %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]);
+        PRINT_DEBUG("Le train %d tente d'emprunter la ligne non reliée %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]);
         return;
     }
     sem_wait(sem_fifo); // évite l'interblocage entre deux trains allant dans des direction opposées
@@ -91,7 +98,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
         sem_wait(liaisons[station2][station1].sem_engage); // on verrouille l'accès à la ligne en sens contraire //interblocage évité ici par sem_fifo
     }
     liaisons[station1][station2].nb_trains++;
-    PRINT("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
+    PRINT_DEBUG("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
     sem_post(liaisons[station1][station2].sem_engage);
     sem_post(sem_fifo);
 
@@ -104,7 +111,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     sem_wait(trains[id_train-1].sem_arrivee); //attend que le thread qui gère la liaison ait indiqué que ce train est arrivé
 
     sem_wait(liaisons[station1][station2].sem_engage); //verrouille l'accès concurrent à nb_train des autres trains voulant faire le même trajet
-    PRINT("Le train %d est arrivé à destination sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
+    PRINT_DEBUG("Le train %d est arrivé à destination sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]); //les prints se font avant le déverrouillage des sémaphores pour éviter des affichages incohérents
     liaisons[station1][station2].nb_trains--;
     if (liaisons[station1][station2].nb_trains == 0 && liaisons[station2][station1].valid) { // Si dernier train
         sem_post(liaisons[station2][station1].sem_engage); // on déverrouille l'accès à la ligne en sens contraire
@@ -145,14 +152,34 @@ void* gere_arrivee_gare(void *arg) {
 
 
 void* roule(void *arg) {
-    unsigned char i, j;
+    unsigned short i;
+    unsigned char j;
     unsigned char id = *((unsigned char*) arg);
+    struct timespec start, stop;
+    double times[N_TRAJETS], moyenne = 0, ecart_type = 0, tmp;
 
     for (i=0 ; i < N_TRAJETS ; i++) {
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
         for (j=1 ; j < trains[id].l_trajet ; j++) {
             voyage(trains[id].id, trains[id].trajet[j-1], trains[id].trajet[j]);
         }
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
+        times[i] = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec);
     }
+
+    for (i=0 ; i < N_TRAJETS ; i++) {
+        moyenne += times[i];
+    }
+    moyenne /= N_TRAJETS;
+    PRINT_TEST("Moyenne train %d = %f\n", trains[id].id, moyenne);
+
+    for (i=0 ; i < N_TRAJETS ; i++) {
+        tmp = moyenne - times[i];
+        ecart_type += tmp * tmp;
+    }
+    ecart_type /= N_TRAJETS;
+    ecart_type = sqrt(ecart_type);
+    PRINT_TEST("Écart type train %d = %f\n", trains[id].id, ecart_type);
 
     return NULL;
 }
@@ -164,50 +191,52 @@ void handle_sig(int sig){
 }
 
 int main() {
-    //TODO benchmark tests
-    unsigned char i;
+    unsigned char i, j, k;
     unsigned char index_trains[N_TRAINS];
     struct sigaction act;
     pthread_t thread_train_ids[N_TRAINS], thread_liaison_ids[N_LIAISONS];
 
-    srand(time(NULL)); // initialisation de rand
     memset(&act, '\0', sizeof(act));
     act.sa_handler = handle_sig;
 
     init_reseau();
     sigaction(SIGINT, &act, NULL);
-
-    for (i = 0; i < N_TRAINS; i++) {
-        index_trains[i] = i;
-        if (pthread_create(&thread_train_ids[i], NULL, roule, index_trains+i) != 0) {
-            perror("THREAD ERROR : ");
-            for (unsigned char j = 0 ; j < i ; j++) {
-                pthread_cancel(thread_train_ids[j]);
+    for (i = 1 ; i < 1001 ; i++) {
+        srand(i);
+        PRINT_TEST("srand(%d)\n", i);
+        for (j = 0; j < N_TRAINS; j++) {
+            index_trains[j] = j;
+            if (pthread_create(&thread_train_ids[j], NULL, roule, index_trains + j) != 0) {
+                perror("THREAD ERROR : ");
+                for (k = 0; k < j; k++) {
+                    pthread_cancel(thread_train_ids[k]);
+                }
+                clean_semaphores();
+                exit(EXIT_FAILURE);
             }
-            clean_semaphores();
-            exit(EXIT_FAILURE);
         }
-    }
 
-    for (i = 0; i < N_LIAISONS; i++) {
-        if (pthread_create(&thread_liaison_ids[i], NULL, gere_arrivee_gare, liaisons[all_liaisons[i][0]]+all_liaisons[i][1]) != 0) {
-            unsigned char j;
-            perror("THREAD ERROR : ");
-            for (j = 0 ; j < i ; j++) {
-                pthread_cancel(thread_liaison_ids[j]);
+        for (j = 0; j < N_LIAISONS; j++) {
+            if (pthread_create(&thread_liaison_ids[j], NULL, gere_arrivee_gare,
+                               liaisons[all_liaisons[j][0]] + all_liaisons[j][1]) != 0) {
+                perror("THREAD ERROR : ");
+                for (k = 0; k < j; k++) {
+                    pthread_cancel(thread_liaison_ids[k]);
+                }
+                for (k = 0; k < N_TRAINS; k++) {
+                    pthread_cancel(thread_train_ids[k]);
+                }
+                clean_semaphores();
+                exit(EXIT_FAILURE);
             }
-            for (j = 0 ; j < N_TRAINS ; j++) {
-                pthread_cancel(thread_train_ids[j]);
-            }
-            clean_semaphores();
-            exit(EXIT_FAILURE);
         }
-    }
-    for (i = 0; i < N_TRAINS; i++) {
-        pthread_join(thread_train_ids[i], NULL);
-    }
-    for (i = 0; i < N_LIAISONS; i++) {
-        pthread_cancel(thread_liaison_ids[i]); //Ces threads font une boucle infinie, les arrêter car leur travail est fini
+        for (j = 0; j < N_TRAINS; j++) {
+            pthread_join(thread_train_ids[j], NULL);
+        }
+        for (j = 0; j < N_LIAISONS; j++) {
+            pthread_cancel(
+                    thread_liaison_ids[j]); //Ces threads font une boucle infinie, les arrêter car leur travail est fini
+        }
     }
 
     clean_semaphores();

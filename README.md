@@ -4,12 +4,14 @@ C & Linux (Ubuntu 16.04)
 # How to launch
 Same instruction for all four projects :
 ```bash
-$gcc main.c header.h -Wall -Wextra -Werror -O3 -lpthread -DDEBUG -o train.out
+$gcc main.c header.h -Wall -Wextra -Werror -O3 -lpthread -lm -DDEBUG -DTEST -o train.out
 $./train.out
 ```
 Add ```-lrt``` only for project 4
 
 Remove ```-DDEBUG``` if you don't want to see the trains' movement messages
+
+Remove ```-DTEST``` if you don't want to see the timing measurements
 
 # Network
 - A <-> B

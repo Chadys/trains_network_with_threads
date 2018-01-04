@@ -14,10 +14,12 @@
 #include <signal.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <time.h>
+#include <math.h>
 
 #define N_STATIONS 5
 #define N_TRAINS 3
-#define N_TRAJETS 6
+#define N_TRAJETS 100
 #define MAX_L_TRAJET 6
 #define N_LIAISONS 11
 #define SEM_LIAISON_NAME_SIZE 15

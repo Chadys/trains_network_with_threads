@@ -5,7 +5,14 @@ bool debug = true;
 #else
 bool debug = false;
 #endif
-#define PRINT(...) if (debug) printf(__VA_ARGS__)
+#define PRINT_DEBUG(...) if (debug) printf(__VA_ARGS__)
+
+#ifdef TEST
+bool test = true;
+#else
+bool test = false;
+#endif
+#define PRINT_TEST(...) if (test) fprintf(stderr, __VA_ARGS__)
 
 liaison liaisons [N_STATIONS][N_STATIONS]; //tableau représentant toutes les liaisons entre deux stations
 train trains[N_TRAINS];
@@ -74,7 +81,7 @@ void update_status_fifo(unsigned char station1, unsigned char station2, unsigned
 bool gere_arrivee_gare(unsigned char station1, unsigned char station2, unsigned char id_train) {
     bool arrive = false;
     while (liaisons[station1][station2].train_fifo[0].id_train != 0 && liaisons[station1][station2].train_fifo[0].arrive) { //tant qu'il y a un train et que le premier est arrivé
-        PRINT("Le train %d est arrivé à destination sur la ligne %c-%c\n", liaisons[station1][station2].train_fifo[0].id_train, noms_stations[station1], noms_stations[station2]);
+        PRINT_DEBUG("Le train %d est arrivé à destination sur la ligne %c-%c\n", liaisons[station1][station2].train_fifo[0].id_train, noms_stations[station1], noms_stations[station2]);
         if(liaisons[station1][station2].train_fifo[0].id_train == id_train) { //si le train du thread appelant est arrivé, lui indiquer
             arrive = true;
         }
@@ -96,7 +103,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     bool arrive;
 
     if (!liaisons[station1][station2].valid) {
-        PRINT("Le train %d tente d'emprunter la ligne non reliée %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]);
+        PRINT_DEBUG("Le train %d tente d'emprunter la ligne non reliée %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]);
         return;
     }
 
@@ -107,7 +114,7 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
     }
     pthread_rwlock_rdlock(&liaisons[station1][station2].rwlock_train_deplace); //indique su'un train roule sur ce trajet, verrou en lecture non bloquant pour les autres
     push_fifo(station1, station2, id_train); //marque le train id_train comme en train de voyager à sa bonne place
-    PRINT("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]);
+    PRINT_DEBUG("Le train %d s'engage sur la ligne %c-%c\n", id_train, noms_stations[station1], noms_stations[station2]);
     pthread_rwlock_unlock(&liaisons[station1][station2].rwlock_train_statut);
     pthread_rwlock_unlock(&rwlock_fifo);
 
@@ -131,12 +138,31 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
 void* roule(void *arg) {
     unsigned char i, j;
     unsigned char id = *((unsigned char*) arg);
+    struct timespec start, stop;
+    double times[N_TRAJETS], moyenne = 0, ecart_type = 0, tmp;
 
     for (i=0 ; i < N_TRAJETS ; i++) {
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
         for (j=1 ; j < trains[id].l_trajet ; j++) {
             voyage(trains[id].id, trains[id].trajet[j-1], trains[id].trajet[j]);
         }
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
+        times[i] = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec);
     }
+
+    for (i=0 ; i < N_TRAJETS ; i++) {
+        moyenne += times[i];
+    }
+    moyenne /= N_TRAJETS;
+    PRINT_TEST("Moyenne train %d = %f\n", trains[id].id, moyenne);
+
+    for (i=0 ; i < N_TRAJETS ; i++) {
+        tmp = moyenne - times[i];
+        ecart_type += tmp * tmp;
+    }
+    ecart_type /= N_TRAJETS;
+    ecart_type = sqrt(ecart_type);
+    PRINT_TEST("Écart type train %d = %f\n", trains[id].id, ecart_type);
 
     return NULL;
 }
@@ -148,33 +174,36 @@ void handle_sig(int sig){
 }
 
 int main() {
-    //TODO benchmark tests
-    unsigned char i;
+    unsigned short i;
+    unsigned char j;
     unsigned char index_trains[N_TRAINS];
     struct sigaction act;
     pthread_t thread_ids[N_TRAINS];
 
-    srand(time(NULL)); // initialisation de rand
     memset(&act, '\0', sizeof(act));
     act.sa_handler = handle_sig;
 
     init_reseau();
     sigaction(SIGINT, &act, NULL);
 
-    for (i = 0; i < N_TRAINS; i++) {
-        index_trains[i] = i;
-        if (pthread_create(&thread_ids[i], NULL, roule, index_trains+i) != 0) {
-            perror("THREAD ERROR : ");
-            for (unsigned char j = 0 ; j < i ; j++) {
-                pthread_cancel(thread_ids[j]);
+    for (i = 1 ; i < 1001 ; i++) {
+        srand(i);
+        PRINT_TEST("srand(%d)\n", i);
+        for (j = 0; j < N_TRAINS; j++) {
+            index_trains[j] = j;
+            if (pthread_create(&thread_ids[j], NULL, roule, index_trains + j) != 0) {
+                perror("THREAD ERROR : ");
+                for (unsigned char k = 0; k < j; k++) {
+                    pthread_cancel(thread_ids[k]);
+                }
+                clean_rwlocks();
+                exit(EXIT_FAILURE);
             }
-            clean_rwlocks();
-            exit(EXIT_FAILURE);
         }
-    }
 
-    for (i = 0; i < N_TRAINS; i++) {
-        pthread_join(thread_ids[i], NULL);
+        for (j = 0; j < N_TRAINS; j++) {
+            pthread_join(thread_ids[j], NULL);
+        }
     }
 
     clean_rwlocks();
