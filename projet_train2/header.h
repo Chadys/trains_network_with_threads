@@ -19,7 +19,7 @@
 
 #define N_STATIONS 5
 #define N_TRAINS 3
-#define N_TRAJETS 100
+#define N_TRAJETS 10
 #define MAX_L_TRAJET 6
 #define N_LIAISONS 11
 #define SEM_LIAISON_NAME_SIZE 15

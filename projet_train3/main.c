@@ -139,22 +139,32 @@ void* roule(void *arg) {
     unsigned char i, j;
     unsigned char id = *((unsigned char*) arg);
     struct timespec start, stop;
-    double times[N_TRAJETS], moyenne = 0, ecart_type = 0, tmp;
+    double times[N_TRAJETS], moyenne = 0, ecart_type = 0, tmp, unit1, unit2;
+    char * unit_string;
+    if (N_TRAJETS < 100) {
+        unit_string = "ms";
+        unit1 = 1e3;
+        unit2 = 1e3;
+    } else {
+        unit_string = "sec";
+        unit1 = 1;
+        unit2 = 1e6;
+    }
 
     for (i=0 ; i < N_TRAJETS ; i++) {
-        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
         for (j=1 ; j < trains[id].l_trajet ; j++) {
             voyage(trains[id].id, trains[id].trajet[j-1], trains[id].trajet[j]);
         }
-        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
-        times[i] = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec);
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stop);
+        times[i] = (stop.tv_sec - start.tv_sec) * unit1 + (stop.tv_nsec - start.tv_nsec) / unit2;
     }
 
     for (i=0 ; i < N_TRAJETS ; i++) {
         moyenne += times[i];
     }
     moyenne /= N_TRAJETS;
-    PRINT_TEST("Moyenne train %d = %f\n", trains[id].id, moyenne);
+    PRINT_TEST("Moyenne train %d = %f %s\n", trains[id].id, moyenne, unit_string);
 
     for (i=0 ; i < N_TRAJETS ; i++) {
         tmp = moyenne - times[i];
@@ -162,7 +172,7 @@ void* roule(void *arg) {
     }
     ecart_type /= N_TRAJETS;
     ecart_type = sqrt(ecart_type);
-    PRINT_TEST("Écart type train %d = %f\n", trains[id].id, ecart_type);
+    PRINT_TEST("Écart type train %d = %f %s\n", trains[id].id, ecart_type, unit_string);
 
     return NULL;
 }
@@ -185,10 +195,11 @@ int main() {
 
     init_reseau();
     sigaction(SIGINT, &act, NULL);
+    PRINT_TEST("Tests pour %d trajets\n", N_TRAJETS);
 
     for (i = 1 ; i < 1001 ; i++) {
         srand(i);
-        PRINT_TEST("srand(%d)\n", i);
+        PRINT_TEST("\nsrand(%d)\n", i);
         for (j = 0; j < N_TRAINS; j++) {
             index_trains[j] = j;
             if (pthread_create(&thread_ids[j], NULL, roule, index_trains + j) != 0) {
