@@ -36,8 +36,6 @@ void init_reseau(){
         pthread_mutex_init(&liaisons[all_liaisons[i][0]][all_liaisons[i][1]].mutex, NULL);
     }
 
-    unsigned char l_trajets[N_TRAINS] = {5, 6, 6};
-    unsigned char trajets[N_TRAINS][6] = {{A, B, C, B, A}, {A, B, D, C, B, A}, {A, B, D, C, E, A}};
     for (unsigned char i = 0 ; i < N_TRAINS ; i++) {
         trains[i].id = i+(unsigned char)1;
         creer_trajet(i, trajets[i], l_trajets[i]);
