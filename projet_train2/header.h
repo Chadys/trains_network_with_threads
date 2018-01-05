@@ -24,6 +24,7 @@
 #define N_LIAISONS 11
 #define SEM_LIAISON_NAME_SIZE 15
 #define SEM_TRAIN_NAME_SIZE 12
+#define MAX_SEED 1000
 
 const char * sem_fifo_name = "Fifo_sem";
 char sem_train_names[SEM_TRAIN_NAME_SIZE] = "\0_train_sem";
@@ -61,5 +62,10 @@ typedef struct train {
     unsigned char l_trajet;
     sem_t *sem_arrivee;
 } train;
+
+typedef struct thread_infos {
+    unsigned char index_train;
+    unsigned short seed;
+} thread_infos;
 
 #endif //PROJET_TRAIN2_HEADER_H

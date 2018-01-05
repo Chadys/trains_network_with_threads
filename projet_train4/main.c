@@ -18,6 +18,7 @@ liaison liaisons [N_STATIONS][N_STATIONS]; //tableau représentant toutes les li
 train trains[N_TRAINS];
 mqd_t mqueue_fifo;
 char ok = 'Y';
+double temps_trajet[MAX_SEED][N_TRAJETS][N_TRAINS]; //mesure de tous les temps de trajet
 
 struct mq_attr attr = {0, N_TRAINS, 1, 0, {0,0,0,0}}; //jamais plus de N_TRAINS trains au même endroit //seul l'id du train sera lu //dernier argument __pad ?? je n'ai trouvé aucune doc dessus mais seul façon de lancer mon compiler
 
@@ -58,7 +59,7 @@ void init_reseau(){
     }
 }
 
-void clean_semaphore(unsigned char station1, unsigned char station2) {
+void clean_mqueue(unsigned char station1, unsigned char station2) {
     mq_close(liaisons[station1][station2].mqueue_status);
     mqueue_statut_names[0] = noms_stations[station1];
     mqueue_statut_names[1] = noms_stations[station2];
@@ -69,9 +70,9 @@ void clean_semaphore(unsigned char station1, unsigned char station2) {
     mq_unlink(mqueue_engage_names);
 }
 
-void clean_semaphores(){
+void clean_mqueues(){
     for (unsigned char i = 0; i < N_LIAISONS; ++i) {
-        clean_semaphore(all_liaisons[i][0], all_liaisons[i][1]);
+        clean_mqueue(all_liaisons[i][0], all_liaisons[i][1]);
     }
     for (unsigned char i = 0 ; i < N_TRAINS ; i++) {
         mq_close(trains[i].mqueue_arrive_start);
@@ -133,56 +134,53 @@ void* gere_arrivee_gare(void *arg) {
 
 void* roule(void *arg) {
     unsigned char i, j;
-    unsigned char id = *((unsigned char*) arg);
+    thread_infos infos = *((thread_infos*) arg);
     struct timespec start, stop;
-    double times[N_TRAJETS], moyenne = 0, ecart_type = 0, tmp, unit1, unit2;
-    char * unit_string;
-    if (N_TRAJETS < 100) {
-        unit_string = "ms";
-        unit1 = 1e3;
-        unit2 = 1e3;
-    } else {
-        unit_string = "sec";
-        unit1 = 1;
-        unit2 = 1e6;
-    }
 
     for (i=0 ; i < N_TRAJETS ; i++) {
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
-        for (j=1 ; j < trains[id].l_trajet ; j++) {
-            voyage(trains[id].id, trains[id].trajet[j-1], trains[id].trajet[j]);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+        for (j=1 ; j < trains[infos.index_train].l_trajet ; j++) {
+            voyage(trains[infos.index_train].id, trains[infos.index_train].trajet[j-1], trains[infos.index_train].trajet[j]);
         }
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stop);
-        times[i] = (stop.tv_sec - start.tv_sec) * unit1 + (stop.tv_nsec - start.tv_nsec) / unit2;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &stop);
+        temps_trajet[infos.seed-1][i][infos.index_train] = (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / 1e9; //calcul du temps mis pour un trajet en secondes
     }
-
-    for (i=0 ; i < N_TRAJETS ; i++) {
-        moyenne += times[i];
-    }
-    moyenne /= N_TRAJETS;
-    PRINT_TEST("Moyenne train %d = %f %s\n", trains[id].id, moyenne, unit_string);
-
-    for (i=0 ; i < N_TRAJETS ; i++) {
-        tmp = moyenne - times[i];
-        ecart_type += tmp * tmp;
-    }
-    ecart_type /= N_TRAJETS;
-    ecart_type = sqrt(ecart_type);
-    PRINT_TEST("Écart type train %d = %f %s\n", trains[id].id, ecart_type, unit_string);
 
     return NULL;
 }
 
+void affiche_tests_results(){
+    for (unsigned char index_train = 0 ; index_train < N_TRAINS ; ++index_train) {
+        double moyenne = 0, ecart_type = 0, tmp;
+        for (unsigned short seed = 0; seed < MAX_SEED; ++seed) {
+            for (unsigned char index_trajet = 0; index_trajet < N_TRAJETS; ++index_trajet) {
+                moyenne += temps_trajet[seed][index_trajet][index_train];
+            }
+        }
+        moyenne /= N_TRAJETS+MAX_SEED;
+        PRINT_TEST("\nMoyenne trajet train %d = %f sec\n", trains[index_train].id, moyenne);
+        for (unsigned short seed = 0; seed < MAX_SEED; ++seed) {
+            for (unsigned char index_trajet = 0; index_trajet < N_TRAJETS; ++index_trajet) {
+                tmp = moyenne - temps_trajet[seed][index_trajet][index_train];
+                ecart_type += tmp * tmp;
+            }
+        }
+        ecart_type /= N_TRAJETS+MAX_SEED;
+        ecart_type = sqrt(ecart_type);
+        PRINT_TEST("Écart type trajet train %d = %f sec\n", trains[index_train].id, ecart_type);
+    }
+}
+
 void handle_sig(int sig){
     signal(sig, SIG_IGN); //pas d'appel au handler lorsqu'il traite déjà un signal de ce type
-    clean_semaphores();
+    clean_mqueues();
     exit(EXIT_SUCCESS);
 }
 
 int main() {
     unsigned short i;
     unsigned char j, k;
-    unsigned char index_trains[N_TRAINS];
+    thread_infos infos[N_TRAINS];
     struct sigaction act;
     pthread_t thread_train_ids[N_TRAINS], thread_liaison_ids[N_LIAISONS];
 
@@ -191,19 +189,20 @@ int main() {
 
     init_reseau();
     sigaction(SIGINT, &act, NULL);
-    PRINT_TEST("Tests pour %d trajets\n", N_TRAJETS);
+    PRINT_TEST("Tests pour %d trajets, pour des seeds allant de 1 à %d\n\n", N_TRAJETS, MAX_SEED);
 
-    for (i = 1 ; i < 1001 ; i++) {
+    for (i = 1 ; i <= MAX_SEED ; i++) {
         srand(i);
-        PRINT_TEST("\nsrand(%d)\n", i);
+        PRINT_TEST("Mesurements started for srand(%d)\n", i);
         for (j = 0; j < N_TRAINS; j++) {
-            index_trains[j] = j;
-            if (pthread_create(&thread_train_ids[j], NULL, roule, index_trains + j) != 0) {
+            infos[j].seed = i;
+            infos[j].index_train = j;
+            if (pthread_create(&thread_train_ids[j], NULL, roule, infos + j) != 0) {
                 perror("THREAD ERROR : ");
                 for (k = 0; k < j; k++) {
                     pthread_cancel(thread_train_ids[k]);
                 }
-                clean_semaphores();
+                clean_mqueues();
                 exit(EXIT_FAILURE);
             }
         }
@@ -218,7 +217,7 @@ int main() {
                 for (k = 0; k < N_TRAINS; k++) {
                     pthread_cancel(thread_train_ids[k]);
                 }
-                clean_semaphores();
+                clean_mqueues();
                 exit(EXIT_FAILURE);
             }
         }
@@ -226,11 +225,11 @@ int main() {
             pthread_join(thread_train_ids[j], NULL);
         }
         for (j = 0; j < N_LIAISONS; j++) {
-            pthread_cancel(
-                    thread_liaison_ids[j]); //Ces threads font une boucle infinie, les arrêter car leur travail est fini
+            pthread_cancel(thread_liaison_ids[j]); //Ces threads font une boucle infinie, les arrêter car leur travail est fini
         }
     }
 
-    clean_semaphores();
+    affiche_tests_results();
+    clean_mqueues();
     return 0;
 }

@@ -20,6 +20,7 @@
 #define N_TRAJETS 10
 #define MAX_L_TRAJET 6
 #define N_LIAISONS 11
+#define MAX_SEED 1000
 
 enum {
     A,
@@ -50,5 +51,10 @@ typedef struct train {
     unsigned char trajet[MAX_L_TRAJET];
     unsigned char l_trajet;
 } train;
+
+typedef struct thread_infos {
+    unsigned char index_train;
+    unsigned short seed;
+} thread_infos;
 
 #endif //PROJET_TRAIN3_HEADER_H

@@ -23,6 +23,7 @@
 #define N_LIAISONS 11
 #define MQUEUE_LIAISON_NAME_SIZE 18
 #define MQUEUE_TRAIN_NAME_SIZE 15
+#define MAX_SEED 1000
 
 const char * mqueue_fifo_name = "Fifo_mqueue";
 char mqueue_train_start_names[MQUEUE_TRAIN_NAME_SIZE] = "\0_start_mqueue";
@@ -56,5 +57,10 @@ typedef struct train {
     mqd_t mqueue_arrive_start;
     mqd_t mqueue_arrive_ended;
 } train;
+
+typedef struct thread_infos {
+    unsigned char index_train;
+    unsigned short seed;
+} thread_infos;
 
 #endif //PROJET_TRAIN4_HEADER_H

@@ -17,6 +17,7 @@ bool test = false;
 liaison liaisons [N_STATIONS][N_STATIONS]; //tableau représentant toutes les liaisons entre deux stations
 train trains[N_TRAINS];
 pthread_rwlock_t rwlock_fifo;
+double temps_trajet[MAX_SEED][N_TRAJETS][N_TRAINS]; //mesure de tous les temps de trajet
 
 
 void relier_stations(unsigned char station1, unsigned char station2) {
@@ -137,44 +138,41 @@ void voyage(unsigned char id_train, unsigned char station1, unsigned char statio
 
 void* roule(void *arg) {
     unsigned char i, j;
-    unsigned char id = *((unsigned char*) arg);
+    thread_infos infos = *((thread_infos*) arg);
     struct timespec start, stop;
-    double times[N_TRAJETS], moyenne = 0, ecart_type = 0, tmp, unit1, unit2;
-    char * unit_string;
-    if (N_TRAJETS < 100) {
-        unit_string = "ms";
-        unit1 = 1e3;
-        unit2 = 1e3;
-    } else {
-        unit_string = "sec";
-        unit1 = 1;
-        unit2 = 1e6;
-    }
 
     for (i=0 ; i < N_TRAJETS ; i++) {
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start);
-        for (j=1 ; j < trains[id].l_trajet ; j++) {
-            voyage(trains[id].id, trains[id].trajet[j-1], trains[id].trajet[j]);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+        for (j=1 ; j < trains[infos.index_train].l_trajet ; j++) {
+            voyage(trains[infos.index_train].id, trains[infos.index_train].trajet[j-1], trains[infos.index_train].trajet[j]);
         }
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &stop);
-        times[i] = (stop.tv_sec - start.tv_sec) * unit1 + (stop.tv_nsec - start.tv_nsec) / unit2;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &stop);
+        temps_trajet[infos.seed-1][i][infos.index_train] = (stop.tv_sec - start.tv_sec) + (stop.tv_nsec - start.tv_nsec) / 1e9; //calcul du temps mis pour un trajet en secondes
     }
-
-    for (i=0 ; i < N_TRAJETS ; i++) {
-        moyenne += times[i];
-    }
-    moyenne /= N_TRAJETS;
-    PRINT_TEST("Moyenne train %d = %f %s\n", trains[id].id, moyenne, unit_string);
-
-    for (i=0 ; i < N_TRAJETS ; i++) {
-        tmp = moyenne - times[i];
-        ecart_type += tmp * tmp;
-    }
-    ecart_type /= N_TRAJETS;
-    ecart_type = sqrt(ecart_type);
-    PRINT_TEST("Écart type train %d = %f %s\n", trains[id].id, ecart_type, unit_string);
 
     return NULL;
+}
+
+void affiche_tests_results(){
+    for (unsigned char index_train = 0 ; index_train < N_TRAINS ; ++index_train) {
+        double moyenne = 0, ecart_type = 0, tmp;
+        for (unsigned short seed = 0; seed < MAX_SEED; ++seed) {
+            for (unsigned char index_trajet = 0; index_trajet < N_TRAJETS; ++index_trajet) {
+                moyenne += temps_trajet[seed][index_trajet][index_train];
+            }
+        }
+        moyenne /= N_TRAJETS+MAX_SEED;
+        PRINT_TEST("\nMoyenne trajet train %d = %f sec\n", trains[index_train].id, moyenne);
+        for (unsigned short seed = 0; seed < MAX_SEED; ++seed) {
+            for (unsigned char index_trajet = 0; index_trajet < N_TRAJETS; ++index_trajet) {
+                tmp = moyenne - temps_trajet[seed][index_trajet][index_train];
+                ecart_type += tmp * tmp;
+            }
+        }
+        ecart_type /= N_TRAJETS+MAX_SEED;
+        ecart_type = sqrt(ecart_type);
+        PRINT_TEST("Écart type trajet train %d = %f sec\n", trains[index_train].id, ecart_type);
+    }
 }
 
 void handle_sig(int sig){
@@ -186,7 +184,7 @@ void handle_sig(int sig){
 int main() {
     unsigned short i;
     unsigned char j;
-    unsigned char index_trains[N_TRAINS];
+    thread_infos infos[N_TRAINS];
     struct sigaction act;
     pthread_t thread_ids[N_TRAINS];
 
@@ -195,14 +193,15 @@ int main() {
 
     init_reseau();
     sigaction(SIGINT, &act, NULL);
-    PRINT_TEST("Tests pour %d trajets\n", N_TRAJETS);
+    PRINT_TEST("Tests pour %d trajets, pour des seeds allant de 1 à %d\n\n", N_TRAJETS, MAX_SEED);
 
-    for (i = 1 ; i < 1001 ; i++) {
+    for (i = 1 ; i <= MAX_SEED ; i++) {
         srand(i);
-        PRINT_TEST("\nsrand(%d)\n", i);
+        PRINT_TEST("Mesurements started for srand(%d)\n", i);
         for (j = 0; j < N_TRAINS; j++) {
-            index_trains[j] = j;
-            if (pthread_create(&thread_ids[j], NULL, roule, index_trains + j) != 0) {
+            infos[j].seed = i;
+            infos[j].index_train = j;
+            if (pthread_create(&thread_ids[j], NULL, roule, infos + j) != 0) {
                 perror("THREAD ERROR : ");
                 for (unsigned char k = 0; k < j; k++) {
                     pthread_cancel(thread_ids[k]);
@@ -217,6 +216,7 @@ int main() {
         }
     }
 
+    affiche_tests_results();
     clean_rwlocks();
     return 0;
 }
