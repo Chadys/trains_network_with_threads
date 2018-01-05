@@ -21,7 +21,7 @@ double temps_trajet[MAX_SEED][N_TRAJETS][N_TRAINS]; //mesure de tous les temps d
 
 
 void relier_stations(unsigned char station1, unsigned char station2) {
-    liaisons[station1][station2].valid = 1;
+    liaisons[station1][station2].valid = true;
     pthread_rwlock_init(&liaisons[station1][station2].rwlock_train_statut, NULL);
     pthread_rwlock_init(&liaisons[station1][station2].rwlock_train_deplace, NULL);
 }

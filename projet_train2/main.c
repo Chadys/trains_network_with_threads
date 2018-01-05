@@ -21,7 +21,7 @@ double temps_trajet[MAX_SEED][N_TRAJETS][N_TRAINS]; //mesure de tous les temps d
 
 
 void relier_stations(unsigned char station1, unsigned char station2) {
-    liaisons[station1][station2].valid = 1;
+    liaisons[station1][station2].valid = true;
     sem_engage_names[0] = noms_stations[station1];
     sem_engage_names[1] = noms_stations[station2];
     liaisons[station1][station2].sem_engage = sem_open(sem_engage_names, O_CREAT, S_IRUSR | S_IWUSR, 1);

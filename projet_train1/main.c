@@ -32,7 +32,7 @@ void init_reseau(){
 
     memset(liaisons, 0, sizeof(liaison)*N_STATIONS*N_STATIONS);
     for (unsigned char i = 0; i < N_LIAISONS; ++i) {
-        liaisons[all_liaisons[i][0]][all_liaisons[i][1]].valid = 1;
+        liaisons[all_liaisons[i][0]][all_liaisons[i][1]].valid = true;
         pthread_mutex_init(&liaisons[all_liaisons[i][0]][all_liaisons[i][1]].mutex, NULL);
     }
 

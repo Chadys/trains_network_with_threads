@@ -49,7 +49,7 @@ typedef struct trajet {
 } trajet;
 
 typedef struct liaison {
-    char valid;
+    bool valid;
     sem_t *sem_engage;
     sem_t *sem_arrive;
     trajet train_fifo[N_TRAINS];

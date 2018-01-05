@@ -35,7 +35,7 @@ const unsigned char l_trajets[N_TRAINS] = {5, 6, 6};
 const unsigned char trajets[N_TRAINS][MAX_L_TRAJET] = {{A, B, C, B, A}, {A, B, D, C, B, A}, {A, B, D, C, E, A}};
 
 typedef struct liaison {
-    char valid;
+    bool valid;
     pthread_mutex_t mutex;
     unsigned char train_fifo[N_TRAINS];
 } liaison;

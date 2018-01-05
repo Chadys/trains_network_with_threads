@@ -40,7 +40,7 @@ typedef struct trajet {
 } trajet;
 
 typedef struct liaison {
-    char valid;
+    bool valid;
     pthread_rwlock_t rwlock_train_statut;
     pthread_rwlock_t rwlock_train_deplace;
     trajet train_fifo[N_TRAINS];

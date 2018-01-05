@@ -23,7 +23,7 @@ double temps_trajet[MAX_SEED][N_TRAJETS][N_TRAINS]; //mesure de tous les temps d
 struct mq_attr attr = {0, N_TRAINS, 1, 0, {0,0,0,0}}; //jamais plus de N_TRAINS trains au même endroit //seul l'id du train sera lu //dernier argument __pad ?? je n'ai trouvé aucune doc dessus mais seul façon de lancer mon compiler
 
 void relier_stations(unsigned char station1, unsigned char station2) {
-    liaisons[station1][station2].valid = 1;
+    liaisons[station1][station2].valid = true;
     mqueue_statut_names[0] = noms_stations[station1];
     mqueue_statut_names[1] = noms_stations[station2];
     liaisons[station1][station2].mqueue_status = mq_open(mqueue_statut_names, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attr);
