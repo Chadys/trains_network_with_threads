@@ -20,7 +20,7 @@
 #define N_TRAJETS 10
 #define MAX_L_TRAJET 6
 #define N_LIAISONS 11
-#define MAX_SEED 1000
+#define MAX_SEED 500
 
 enum {
     A,

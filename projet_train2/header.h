@@ -24,7 +24,7 @@
 #define N_LIAISONS 11
 #define SEM_LIAISON_NAME_SIZE 15
 #define SEM_TRAIN_NAME_SIZE 12
-#define MAX_SEED 1000
+#define MAX_SEED 500
 
 const char * sem_fifo_name = "Fifo_sem";
 char sem_train_names[SEM_TRAIN_NAME_SIZE] = "\0_train_sem";
