@@ -163,13 +163,14 @@ int main() {
 
     for (i = 1 ; i <= MAX_SEED ; i++) {
         srand(i);
-        PRINT_TEST("Mesurements started for srand(%d)\n", i);
+        PRINT_TEST("Mesures démarrées pour srand(%d)\n", i);
         for (j = 0; j < N_TRAINS; j++) {
             infos[j].seed = i;
             infos[j].index_train = j;
             if (pthread_create(&thread_ids[j], NULL, roule, infos + j) != 0) {
                 perror("THREAD ERROR : ");
                 for (unsigned char k = 0; k < j; k++) {
+                    pthread_detach(thread_ids[k]);
                     pthread_cancel(thread_ids[k]);
                 }
                 clean_mutex();

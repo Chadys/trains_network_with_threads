@@ -193,13 +193,14 @@ int main() {
 
     for (i = 1 ; i <= MAX_SEED ; i++) {
         srand(i);
-        PRINT_TEST("Mesurements started for srand(%d)\n", i);
+        PRINT_TEST("Mesures démarrées pour srand(%d)\n", i);
         for (j = 0; j < N_TRAINS; j++) {
             infos[j].seed = i;
             infos[j].index_train = j;
             if (pthread_create(&thread_train_ids[j], NULL, roule, infos + j) != 0) {
                 perror("THREAD ERROR : ");
                 for (k = 0; k < j; k++) {
+                    pthread_detach(thread_train_ids[k]);
                     pthread_cancel(thread_train_ids[k]);
                 }
                 clean_mqueues();
@@ -212,9 +213,11 @@ int main() {
                                liaisons[all_liaisons[j][0]] + all_liaisons[j][1]) != 0) {
                 perror("THREAD ERROR : ");
                 for (k = 0; k < j; k++) {
+                    pthread_detach(thread_liaison_ids[k]);
                     pthread_cancel(thread_liaison_ids[k]);
                 }
                 for (k = 0; k < N_TRAINS; k++) {
+                    pthread_detach(thread_train_ids[k]);
                     pthread_cancel(thread_train_ids[k]);
                 }
                 clean_mqueues();
@@ -225,6 +228,7 @@ int main() {
             pthread_join(thread_train_ids[j], NULL);
         }
         for (j = 0; j < N_LIAISONS; j++) {
+            pthread_detach(thread_liaison_ids[j]);
             pthread_cancel(thread_liaison_ids[j]); //Ces threads font une boucle infinie, les arrêter car leur travail est fini
         }
     }
